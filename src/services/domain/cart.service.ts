@@ -30,4 +30,43 @@ export class CartService {
         this.storage.setCart(cart); //adiciono o carrinho no localStorage
         return cart;
     }
+
+    removeProduto(produto: ProdutoDTO) : Cart {
+        let cart = this.getCart();
+        let position = cart.items.findIndex(x => x.produto.id == produto.id);
+        if (position != -1) { //se for -1 então existe na lista e removemos o item
+            cart.items.splice(position, 1); //remove o item do carrinho
+        }
+        this.storage.setCart(cart); //atualizamos o carrinho no localStorage
+        return cart;
+    }
+     increaseQuantity(produto: ProdutoDTO) : Cart { //aumenta a quantidade do produto
+        let cart = this.getCart();
+        let position = cart.items.findIndex(x => x.produto.id == produto.id);
+        if (position != -1) {
+            cart.items[position].quantidade++;
+        }
+        this.storage.setCart(cart);
+        return cart;
+    }
+     decreaseQuantity(produto: ProdutoDTO) : Cart { //diminui a quantidade do produto
+        let cart = this.getCart();
+        let position = cart.items.findIndex(x => x.produto.id == produto.id);
+        if (position != -1) {
+            cart.items[position].quantidade--;
+            if (cart.items[position].quantidade < 1) {
+                cart = this.removeProduto(produto);
+            }
+        }
+        this.storage.setCart(cart);
+        return cart;
+    }
+     total() : number {
+        let cart = this.getCart(); //pega o carrinho
+        let sum = 0;
+        for (var i=0; i<cart.items.length; i++) { //percorre os itens do carrinho
+            sum += cart.items[i].produto.preco * cart.items[i].quantidade;
+        }
+        return sum;
+    }
 }
