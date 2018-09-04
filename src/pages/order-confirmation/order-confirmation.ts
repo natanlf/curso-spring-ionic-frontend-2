@@ -18,6 +18,7 @@ export class OrderConfirmationPage {
   cartItems: CartItem[];
   cliente: ClienteDTO;
   endereco: EnderecoDTO;
+  codpedido: string;
 
    constructor(
     public navCtrl: NavController, 
@@ -53,16 +54,25 @@ export class OrderConfirmationPage {
     this.navCtrl.setRoot('CartPage');
   }
 
+  home() {
+    this.navCtrl.setRoot('CategoriasPage');
+  }
+
   checkout() {
     this.pedidoService.insert(this.pedido)
       .subscribe(response => {
         this.cartService.createOrClearCart(); //se a inserção do pedido der certo então limpo o carrinho
-        console.log(response.headers.get('location')); //esse location é o cabeçalho com a url do objeto inserido
+        this.codpedido = this.extractId(response.headers.get('location')); //pega o id do pedido que fi inserido no banco de dados
       },
       error => { //se algo der acesso negado vai para a página home
         if (error.status == 403) {
           this.navCtrl.setRoot('HomePage');
         }
       });
+  }
+
+  private extractId(location : string) : string {
+    let position = location.lastIndexOf('/'); //ultima posição da ultima barra
+    return location.substring(position + 1, location.length); //pego apartir da barra ais um, ou seja, o caracter que está na frente da barra
   }
 }
