@@ -11,8 +11,12 @@ import { LoadingController } from 'ionic-angular/components/loading/loading-cont
   templateUrl: 'produtos.html',
 })
 export class ProdutosPage {
-   items : ProdutoDTO[];
-   constructor(
+  //sempre que eu buscar uma nova página vou concatenar com uma lista que já existia
+  //por isso que a lista tem que começar vazia, pois a busca é paginada
+  items : ProdutoDTO[] = []; 
+  page : number = 0;
+
+  constructor(
     public navCtrl: NavController, 
     public navParams: NavParams,
     public produtoService: ProdutoService,
@@ -26,18 +30,26 @@ export class ProdutosPage {
   loadData(){
     let categoria_id = this.navParams.get('categoria_id'); //assim pego o id que foi selecionado na página de categoria
     let loader = this.presentLoading(); //chamo o loader
-    this.produtoService.findByCategoria(categoria_id)
+    //busca paginada
+    this.produtoService.findByCategoria(categoria_id, this.page, 10)
     .subscribe(response=>{
-      this.items = response['content'];
+      let start = this.items.length; //tamanho da lista antes do carregamento
+      //estou concatenando a lista antiga com a nova pois é uma busca paginada
+      this.items = this.items.concat(response['content']);
+      let end = this.items.length-1; //tamanho da lista após o carregamento menos 1
       loader.dismiss(); //fecho o loader
-      this.loadImageUrls();
+      console.log(this.page);
+      console.log(this.items);
+      this.loadImageUrls(start, end);
     },error=>{
       loader.dismiss(); //fecho o loader
     });
   }
 
-  loadImageUrls() {
-    for (var i=0; i<this.items.length; i++) {
+  //a posição inicial é o valor que a lista tinha antes do carregamento
+  //a posição final é o valor que a lista tem depois do carregamento menos 1
+  loadImageUrls(start: number, end: number) {
+    for (var i=start; i<=end; i++) {
       let item = this.items[i];
       this.produtoService.getSmallImageFromBucket(item.id)
         .subscribe(response => {
@@ -59,10 +71,24 @@ export class ProdutosPage {
     return loader;
   }
 
-  doRefresh(refresher) {
+  //como famzemos uma busca paginada devemos zerar a nosa lista e página
+  //caso contrário temos um carregamento desordenado
+  doRefresh(refresher) { 
+    this.page = 0;
+    this.items = [];
     this.loadData();
     setTimeout(() => {
       refresher.complete();
+    }, 1000);
+  }
+
+  doInfinite(infiniteScroll) { //infinite scroll
+    //toda vez que esse método for chamado significa que queremos buscar mais dados
+    //incrementamos a página e pegamos mais dados chamando o loadData
+    this.page++;
+    this.loadData();
+    setTimeout(() => {
+      infiniteScroll.complete();
     }, 1000);
   }
 }
