@@ -4,13 +4,7 @@ import { Component } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { StorageService } from '../../services/storage.service';
 import { API_CONFIG } from '../../config/api.config';
-
-/**
- * Generated class for the ProfilePage page.
- *
- * See https://ionicframework.com/docs/components/#navigation for more info on
- * Ionic pages and navigation.
- */
+import { CameraOptions, Camera } from '@ionic-native/camera';
 
 @IonicPage()
 @Component({
@@ -20,12 +14,15 @@ import { API_CONFIG } from '../../config/api.config';
 export class ProfilePage {
 
    cliente: ClienteDTO;
+   picture: string;
+  cameraOn: boolean = false;
 
    constructor(
     public navCtrl: NavController, 
     public navParams: NavParams,
     public storage: StorageService,
-    public clienteService: ClienteService) {
+    public clienteService: ClienteService,
+    public camera: Camera) {
   }
    ionViewDidLoad() {
     let localUser = this.storage.getLocalUser();
@@ -54,5 +51,21 @@ export class ProfilePage {
     },
     error => {});
   }
+
+  getCameraPicture() {
+    this.cameraOn = true; //após abrir a camera tenho que desabillitar meu botão do html
+    const options: CameraOptions = {
+     quality: 100,
+     destinationType: this.camera.DestinationType.DATA_URL,
+     encodingType: this.camera.EncodingType.PNG,
+     mediaType: this.camera.MediaType.PICTURE
+   }
+   
+   this.camera.getPicture(options).then((imageData) => { //quando chegar a resposta grava como base 64
+    this.picture = 'data:image/png;base64,' + imageData;
+    this.cameraOn = false; 
+   }, (err) => {
+   });
+ }
 
 }
