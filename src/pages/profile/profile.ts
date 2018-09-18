@@ -1,10 +1,11 @@
-import { ClienteService } from './../../services/domain/cliente.service';
-import { ClienteDTO } from './../../models/cliente.dto';
 import { Component } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { StorageService } from '../../services/storage.service';
+import { ClienteDTO } from '../../models/cliente.dto';
+import { ClienteService } from '../../services/domain/cliente.service';
 import { API_CONFIG } from '../../config/api.config';
 import { CameraOptions, Camera } from '@ionic-native/camera';
+import { DomSanitizer } from '@angular/platform-browser';
 
 @IonicPage()
 @Component({
@@ -13,95 +14,119 @@ import { CameraOptions, Camera } from '@ionic-native/camera';
 })
 export class ProfilePage {
 
-   cliente: ClienteDTO;
-   picture: string;
+  cliente: ClienteDTO;
+  picture: string;
+  profileImage;
   cameraOn: boolean = false;
 
-   constructor(
+  constructor(
     public navCtrl: NavController, 
     public navParams: NavParams,
     public storage: StorageService,
     public clienteService: ClienteService,
-    public camera: Camera) {
+    public camera: Camera,
+    public sanitizer: DomSanitizer) {
+
+      this.profileImage = 'assets/imgs/avatar-blank.png';
   }
-   ionViewDidLoad() {
+
+  ionViewDidLoad() {
     this.loadData();
   }
 
-  loadData(){
+  loadData() {
     let localUser = this.storage.getLocalUser();
     if (localUser && localUser.email) {
       this.clienteService.findByEmail(localUser.email)
-      .subscribe(response=>{
-        this.cliente = response as ClienteDTO; //cast de clienteDTO
-        this.getImageIfExists();//buscar a imagem
-      },
-    error=>{
-      //se der erro 403 quer dizer que não estou autorizado e nesse caso o sistema
-      //vai me redirecionar para a página Home
-      if(error.status==403){ 
-        this.navCtrl.setRoot('HomePage');
-      }
-    });
-    }else{ //caso não ache email no local user também deve redirecionar para a página Home
-      this.navCtrl.setRoot('HomePage');
+        .subscribe(response => {
+          this.cliente = response as ClienteDTO;
+          this.getImageIfExists();
+        },
+        error => {
+          if (error.status == 403) {
+            this.navCtrl.setRoot('HomePage');
+          }
+        });
     }
+    else {
+      this.navCtrl.setRoot('HomePage');
+    }    
   }
 
-  getImageIfExists() { //se a imagem do usuário existe então a pegamos
+  getImageIfExists() {
     this.clienteService.getImageFromBucket(this.cliente.id)
     .subscribe(response => {
       this.cliente.imageUrl = `${API_CONFIG.bucketBaseUrl}/cp${this.cliente.id}.jpg`;
+      this.blobToDataURL(response).then(dataUrl => {
+        let str : string = dataUrl as string;
+        this.profileImage = this.sanitizer.bypassSecurityTrustUrl(str);
+      });
     },
-    error => {});
+    error => {
+      this.profileImage = 'assets/imgs/avatar-blank.png';
+    });
+  }
+
+  // https://gist.github.com/frumbert/3bf7a68ffa2ba59061bdcfc016add9ee
+  blobToDataURL(blob) {
+    return new Promise((fulfill, reject) => {
+        let reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = (e) => fulfill(reader.result);
+        reader.readAsDataURL(blob);
+    })
   }
 
   getCameraPicture() {
-    this.cameraOn = true; //após abrir a camera tenho que desabillitar meu botão do html
+
+    this.cameraOn = true;
+
     const options: CameraOptions = {
-     quality: 100,
-     destinationType: this.camera.DestinationType.DATA_URL,
-     encodingType: this.camera.EncodingType.PNG,
-     mediaType: this.camera.MediaType.PICTURE
-   }
-   
-   this.camera.getPicture(options).then((imageData) => { //quando chegar a resposta grava como base 64
-    this.picture = 'data:image/png;base64,' + imageData;
-    this.cameraOn = false; 
-   }, (err) => {
-    this.cameraOn = false; //caso cancele
-   });
- }
-
- getGalleryPicture() {
-  this.cameraOn = true;
-  const options: CameraOptions = {
-   quality: 100,
-   sourceType: this.camera.PictureSourceType.PHOTOLIBRARY,
-   destinationType: this.camera.DestinationType.DATA_URL,
-   encodingType: this.camera.EncodingType.PNG,
-   mediaType: this.camera.MediaType.PICTURE
- }
- 
- this.camera.getPicture(options).then((imageData) => {
-  this.picture = 'data:image/png;base64,' + imageData;
-  this.cameraOn = false;
- }, (err) => {
-  this.cameraOn = false; 
- });
-}
-
- sendPicture() { //fazendo upload da imagem
-  this.clienteService.uploadPicture(this.picture)
-    .subscribe(response => {
-      this.picture = null; //como já fiz upload coloco a imagem nulo
-      this.loadData(); //depois que fizer upload foço o carregamento dos dados
-    },
-    error => {
+      quality: 100,
+      destinationType: this.camera.DestinationType.DATA_URL,
+      encodingType: this.camera.EncodingType.PNG,
+      mediaType: this.camera.MediaType.PICTURE
+    }
+    
+    this.camera.getPicture(options).then((imageData) => {
+     this.picture = 'data:image/png;base64,' + imageData;
+     this.cameraOn = false;
+    }, (err) => {
+      this.cameraOn = false;
     });
-}
- cancel() {
-  this.picture = null;
-}
+  }
 
+  getGalleryPicture() {
+
+    this.cameraOn = true;
+
+    const options: CameraOptions = {
+      quality: 100,
+      sourceType: this.camera.PictureSourceType.PHOTOLIBRARY,
+      destinationType: this.camera.DestinationType.DATA_URL,
+      encodingType: this.camera.EncodingType.PNG,
+      mediaType: this.camera.MediaType.PICTURE
+    }
+    
+    this.camera.getPicture(options).then((imageData) => {
+     this.picture = 'data:image/png;base64,' + imageData;
+     this.cameraOn = false;
+    }, (err) => {
+      this.cameraOn = false;
+    });
+  }
+
+  sendPicture() {
+    this.clienteService.uploadPicture(this.picture)
+      .subscribe(response => {
+        this.picture = null;
+        this.getImageIfExists();
+      },
+      error => {
+      });
+  }
+
+  cancel() {
+    this.picture = null;
+  }
 }
